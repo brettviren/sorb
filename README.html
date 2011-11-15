@@ -1,0 +1,374 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>SpaceOrb Programming Secrets</title>
+</head>
+
+<body>
+<center>
+<h1>
+
+How to use SpaceOrb under Linux.<p>
+-- or --<p>
+Unsupported Secrets of the SpaceOrb Protocol<p>
+
+
+</h1>
+<h2><a href="mailto:bviren@superk.physics.sunysb.edu">Brett Viren</a></h2>
+<br>
+<br>
+<strong>NEWS:</strong> <br>
+<menu>
+  <li> 19990308: SpaceOrb Joystick driver in official Linux Joystick
+      driver package.<br>
+      Noticed this on Freshmeat that 
+      <a href="http://freshmeat.net/news/1999/03/08/920899632.html">
+      version 1.2.14</a> contains the S.O. driver. <p>
+
+  <li> 19990123: Another SpaceOrb hacker: John Stone. <br>
+       I just got email from this guy.  He has also figured out the
+       orb's protocol and has coded up at library to access it.  Check
+       out his stuff at:
+       <a href="http://jedi.ks.uiuc.edu/~johns/projects/">
+       http://jedi.ks.uiuc.edu/~johns/projects/</a>.  It seems
+       that he is actively developing (unlike me [grin]) so turn
+       to him for fresher code!<p>
+
+  <li> 19981111: Linux SpaceOrb Kernel Joystick driver. <br>
+      by 
+      <a href="mailto:dcthomp@mail.utexas.edu">David Thompson</a>.  
+      For more info see
+      <a href="http://shimano.me.utexas.edu/~dcthomp/spaceorb.html">
+      http://shimano.me.utexas.edu/~dcthomp/spaceorb.html</a>.  He
+      also tells me that his SpaceOrb gives a different length initial or
+      ``R'' packet than what my original code looks for.  He scans for a
+      '\r' instead.  Currently the test code I have here doesn't have this
+      fix, so beware.  Also, he is looking for testers for his
+      kernel module so contact him if you are interested.  
+<p>
+  <li> 19981109: Molecular Viewer App using SpaceOrb.<br>
+      <a href="mailt:markh@xray.bmc.uu.se">Mark Harris</a> has
+      integrated the SpaceOrb into the
+      <a href="http://alpha2.bmc.uu.se/O/o_man/node4.html">
+      O Molecular Viewer</a>
+      See <a href="http://alpha2.bmc.uu.se/markh/notes/joystick.html">
+      http://alpha2.bmc.uu.se/markh/notes/joystick.html</a> for more info.
+<p>
+  <li> 8/97: SpaceOrb XInput Driver<br>
+      written by Louis Kruger <a href="mailto:louie@louie.org">
+      louie@louie.org</a><br>
+      Down load it from his site:<br>
+      <a href="http://www.cs.princeton.edu/~lpkruger/spaceorb/">
+      http://www.cs.princeton.edu/~lpkruger/spaceorb/</a>
+<p>
+  <li> 7/97: SpaceOrb Driver in Linux SVGAlib<br>
+      written by
+      Eric Sharkey <a href="mailto:sharkey@fatman.physics.sunysb.edu">
+      sharkey@fatman.physics.sunysb.edu</a><br>
+      Down load it from sunsite:<br>
+      <a href="http://sunsite.unc.edu/pub/Linux/libs/graphics/svgalib-1.2.11.elf.tgz">
+libs (328k)</a> or
+      <a href="http://sunsite.unc.edu/pub/Linux/libs/graphics/svgalib-1.2.11.tar.gz"> source (638k)</a><p>
+
+</menu>
+<br>
+<br>
+<br>
+</center>
+
+
+<p>
+
+For those who do not know, the orb is a serial device that provides 10
+bit digitization of 3 translational and 3 rotational movements, or 6
+degrees of freedom. SpaceTec has come up with an excellent game
+controller for 3D games like Quake, Descent, etc. Unfortunately...
+
+<p>
+
+SpaceTec hasn't released the protocol that the orb uses, and can't
+currently support cool OSes, like Linux. This protocol is needed to
+write 3rd party free (in the GPL sense) software. SpaceTec's lack of
+Un*x support in general, and Linux in particular, leaves out a large
+number of potential users, but this is a business decision and I am
+definitely not one to understand the making of money. So this is
+(thankfully) their problem.
+
+<p>
+
+My problem, is that I thought it might be a cool thing to write a
+3D event display program for the research experiment I am getting
+my PhD on (ie, an excellent way to waste time I should be spending
+on my research, not to mention eating and sleeping).
+
+<p>
+
+So I set out to see what work on this (at the time) new controller has
+been done out in net land. I didn't find much except for a few other
+interested people. With their help and a lot of staring at the output
+of the serial port, the orb's protocol has been understood. What to do
+with it now, is another story, but I thought others would be
+interested in this first chapter.
+
+<p>
+
+Below is the results of this work. The information was obtained by
+treating the Orb as a black box (or, better yet, a black ball). The
+protocol was figured out with out any input from SpaceTec, so it is
+free from any legal restraints. However, I don't guarantee
+anything. See the GPL for law-crud specifics, and have fun.
+
+<p>
+
+So on to how the SpaceOrb works.
+
+<p>
+<hr>
+<center>
+<h4>The below is from my experiences. If this information is incorrect
+for you or has other errors, please let me know. Also, if you have
+more information, I would like to hear of it. </h4>
+</center>
+<hr>
+<p>
+
+<h2>The orb's packet structure:</h2>
+
+The very first byte of a newly initialized orb is `\r'. After this,
+the orb will send three kind of packets:
+
+<ol>
+  <li> A one time only greeting giving version info and SpaceTec's
+      trade mark. This, I call an `R' packet. (For why, see below.) <p>
+
+  <li> A button press/release with out any orb motion. This is a `K'
+      packet.<p>
+
+  <li> Orb motion with current button state. This is a `D' packet.<p>
+
+</ol>
+
+
+These packets are usually delimited by a Carriage Return. However,
+sometimes there will be more than one packet before a terminating
+CR. Also, usually it will take more than one call to read(2) before an
+entire packet is read from the serial port.<p>
+
+The packets are of, so called, type `R', `K' or `D' because their
+first byte is one of these values when printed as ASCII characters.
+It is this byte that can be used to anticipate what will follow,
+when reading in the packet.<p>
+
+The structure of each packet type is expanded on below:
+
+<dl>
+  <dt><strong>`R' packet</strong>
+  <dd> The greeting packet is 52 bytes long, including the
+       terminating CR. For instance, my orb prints:
+
+<center>
+<pre>
+R Spaceball (R) V4.26 28-Jun-96 Copyright (C) 1996z\r
+</pre>
+</center>
+
+	The `R' is the packet flag.
+<p>
+
+  <dt><strong>`K' packet</strong>
+  <dd> The button press/release packet is a 6 byte packet, including
+      the terminating CR. This packet contains information about a button
+      press or release event. There is no information about
+      motion. It's flag is 75, or ASCII `K'. The values
+      of the packet are as such:
+      
+      <center><pre>[`K'] [t] [buttons] [0] [??check sum??]</pre></center>
+      Each element in a [ ] pair is a byte. Here are the meanings:
+      <dl>
+	<dt><pre>[`K']</pre>
+	<dd> The packet flag.<p>
+
+	<dt><pre>[t]</pre>
+	<dd> The time, in milliseconds from the last button event. Values
+	    are 0 - 100, although, usually > 3. If there is no button press
+	    in 100 ms, a packet showing current button state and 100 ms
+	    elapsed time will be sent.<p>
+
+	<dt><pre>[buttons]</pre>
+	<dd> The state of the buttons just before, and triggering, the
+	    packet. The state of buttons is an OR of all buttons pressed.
+	    The value of individual buttons are as follows:<p>
+
+	    <ul>
+	      <li> 0: No buttons
+	      <li> 1: Button A
+	      <li> 2: Button B
+	      <li> 4: Button C
+	      <li> 8: Button D
+	      <li> 16: Button E 
+	      <li> 32: Button F
+	      <li> 64: Reset Button. (This button is on the bottom and will
+		  reset the current orb position to zero.)
+	    </ul><p>
+
+	<dt><pre>[0]</pre>
+	<dd> This byte is always zero, as far as I can tell. Maybe reserved
+	    for future expansion.
+
+	<dt><pre>[??check sum??]</pre>
+	<dd> This byte appears to be a check sum, although I haven't really
+	    looked into this. (Anyone?)
+      </dl><p>
+
+  <dt><strong>`D' packet</strong>
+  <dd> The motion packet has been the most difficult packet to
+      figure out. This is mostly due to the fact that the 6 degrees
+      of motion data is encoded into 10 bits spread out over 9 bytes.
+      To further complicate matters, the string ``SpaceWare'' is
+      XORed into the data. However, armed with this information
+      and a bit of bit twiddling, one can gain access to the motion
+      packet. <p>
+
+      The packet is laid out like this:
+      <center><pre>[`D] [buttons] [(9 bytes of data)] [??check sum??]</pre>
+      </center>
+      Here are the explanations of the individual bytes.
+      <dl>
+	<dt><pre>[`D']</pre>
+	<dd> The packet flag.<p>
+
+	<dt><pre>[buttons]</pre>
+	<dd> The state of the buttons. See above for button explanation.
+	    If this state changes while there is motion, it will
+	    trigger a `K' packet.<p>
+
+	<dt><pre>[(9 bytes of motion data)]</pre>
+	<dd> This is the meat of the packet. It contains 9 7bit bytes,
+	    with the MSB unneeded. To turn these into translations and
+	    rotations, one needs to XOR these 9 bytes with the 9 characters
+	    from the string <code>``SpaceWare''</code>,
+	    ignore the MSB of each bytes and strip
+	    off 10 bits for each d.o.f. Here is an attempt to show the
+	    structure:
+<pre>
+    c[0]    c[1]    c[2]    c[3]    c[4]    c[5]    c[6]    c[7]    c[8]
+xdddddddxdddddddxdddddddxdddddddxdddddddxdddddddxdddddddxdddddddxddddddd 
+xdddddddxddd           dxdddddddxdd           ddxdddddddxd
+      t[0]  ddddxdddddd       t[2] dddddxddddd      r[1]  ddddddxdddd ddd 
+                  t[1]                   r[0]                   r[2]
+</pre>
+	    <code>c[0]</code> through <code>c[8]</code> are the
+	    9 7bit bytes. An <code>x</code> signifies a MSB that
+	    should be ignored but is left in the diagram to show
+	    the structure. A <code>d</code> is a data bit. The
+	    <code>t[0]</code> through <code>t[2]</code>
+	    are the translational degrees of freedom and the
+	    <code>r[0]</code> through <code>r[2]</code> are the
+	    rotational. Again, the bit marked <code>x</code> is
+	    <em>not</em> included in to the d.o.f. value but is
+	    only showed in the diagram to show the structure. All
+	    bits more significant than the bit at the <code>x</code>
+	    are right shifted (>> in C). Once the 10 bit values
+	    are formed, any value over 511 should have 1024 subtracted
+	    from it in order to express the negative range of motion.
+	    This will then give values -512 to 511 for <code>t[i]</code>
+	    and <code>r[i]</code>.<p>
+
+	<dt><pre>[??check sum??]</pre>
+	<dd> Again, this byte appears to be a check sum and seems to be
+	    Mored with the character `!'. 
+      </dl>      
+</dl>
+
+
+This is the format of the data, but one must be able to read the data
+from a correctly configured serial port. Below is how to do that.
+
+<h2>Format of serial data:</h2>
+
+The orb sends data in 7bit characters, at 9600 bps, however, I have
+found that setting the serial port to 8bit, no parity, I am able to
+distinguish CR from a data character that accidentally is 13. After
+reading in a packet, all data characters can be ANDed with 0177
+(octal) to mask off the high bit.<p>
+
+
+To figure out how to do this, I looked in the source code to
+Miquel van Smoorenburg's minicom and basically did cut and paste
+programming. Much appreciation goes out to van Smoorenburg for placing
+minicom under a license that lets me do this (GPL)! Because of this,
+I suppose the code that I append to this page is also covered by
+such a license. I am no lawyer, nor do I want to be so I will also
+say that in addition to GPL I grant anyone the right to do anything
+with this code that suits their desire as long as it doesn't infringe
+on the GPL. Basically have fun, but be cool.<p>
+
+Anyways, I still don't understand everything, and new nothing
+when I started this, about serial ports,
+so I will just let the code explain for those that care (see below).
+
+<h2>Acknowledgments</h2>
+
+I would like to thank some of the people who helped me get this code
+working, with out whom, I would have had a much tougher time
+finishing, if I finished it at all. So in no particular order, Jason
+Lyons (JasonL@warwick.net, <a href="http://www.geocities.com/SiliconValley/Lab/2353">http://www.geocities.com/SiliconValley/Lab/2353</a>) for helpful email and suggesting to use
+minicom to read the orb directly. This led to tearing out minicom code
+to set up the serial port. Mickael Sweet (mike@easysw.com) for his
+helpful serial page: <a href="http://www.easysw.com/~mike/serial/">
+http://www.easysw.com/~mike/serial/</a> and suggestions. My office
+mate, Eric Sharkey (sharkey@superk.physics.sunysb.edu) for general
+unix hacking solutions. And as I say above, much thanks go to Miquel
+van Smoorenburg for the serial port initialization code.  If I have
+forgotten anyone, my apologies.  <p>
+
+<h2>The Code</h2>
+
+Well, enough of the drivel, here is the code. It is in 2 parts,
+the routines that do the work and a test program. To compile, just
+do:<p>
+
+<pre>
+gcc -I./ -g -Wall -c -o sorb.o sorb.c
+gcc -I./ -g -Wall -c -o sorbT.o sorbT.c
+gcc -I./ -g -Wall -o sorb sorb.o sorbT.o
+</pre>
+
+(You can, of course, skip the debugging/warning flags)<p>
+
+If you want to browse the code, 
+the routines for initializing and reading are in <a
+href="sorb.c">sorb.c</a>, the test program is in <a
+href="sorbT.c">sorbT.c</a> and this header
+file, <a href="sorb.h">sorb.h</a> is needed. If you want to
+download this source, a <a href="Makefile"></a>Makefile and 
+a precompiled Linux ELF
+executable, grab, <a href="sorb.tgz">sorb.tgz</a>
+
+<p>
+
+To use, plug in your SpaceOrb to a free serial port. <code>sorb</code>
+will default to <code>/dev/ttyS0</code>, to use another device use
+the <code>-d /dev/ttyxx</code> option. For other options, see
+the sorbT.c source.<p>
+
+You don't have to, but if anyone uses/improves on this code I would
+be interested to hear about your work.<p>
+
+This was developed on Linux, and may or may not work on other flavors
+of Unix.<p>
+
+Enjoy,<br>
+Brett Viren<p>
+<a href="mailto:bviren@superk.physics.sunysb.edu">
+bviren@superk.physics.sunysb.edu</a><br>
+<a href="http://bock.physics.sunysb.edu/~bviren">
+http://bock.physics.sunysb.edu/~bviren</a>
+
+
+
+<hr>
+<address></address>
+<!-- hhmts start -->
+Last modified: Fri Apr 30 18:30:57 EDT 1999
+<!-- hhmts end -->
+</body> </html>
